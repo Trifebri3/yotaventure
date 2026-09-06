@@ -7,6 +7,7 @@ use App\Models\ArticleCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -104,7 +105,8 @@ class ArticleAdminController extends Controller
             'excerpt_en' => 'nullable|string|max:500',
             'content' => 'required|string',
             'content_en' => 'nullable|string',
-            'cover_image' => 'nullable|string|max:500',
+            'cover_image' => 'nullable',
+            'cover_image_file' => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
             'author_name' => 'required|string|max:150',
             'status' => 'required|in:published,draft',
             'is_featured' => 'nullable|boolean',
@@ -115,6 +117,19 @@ class ArticleAdminController extends Controller
         ]);
 
         $validated['is_featured'] = $request->boolean('is_featured');
+
+        if ($request->hasFile('cover_image_file')) {
+            $path = $request->file('cover_image_file')->store('articles/covers', 'public');
+            $validated['cover_image'] = Storage::url($path);
+        } elseif ($request->hasFile('cover_image')) {
+            $path = $request->file('cover_image')->store('articles/covers', 'public');
+            $validated['cover_image'] = Storage::url($path);
+        } elseif (is_string($request->input('cover_image')) && ! empty($request->input('cover_image'))) {
+            $validated['cover_image'] = $request->input('cover_image');
+        } else {
+            $validated['cover_image'] = null;
+        }
+        unset($validated['cover_image_file']);
 
         if (empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['title']);
@@ -165,7 +180,8 @@ class ArticleAdminController extends Controller
             'excerpt_en' => 'nullable|string|max:500',
             'content' => 'required|string',
             'content_en' => 'nullable|string',
-            'cover_image' => 'nullable|string|max:500',
+            'cover_image' => 'nullable',
+            'cover_image_file' => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:10240',
             'author_name' => 'required|string|max:150',
             'status' => 'required|in:published,draft',
             'is_featured' => 'nullable|boolean',
@@ -176,6 +192,19 @@ class ArticleAdminController extends Controller
         ]);
 
         $validated['is_featured'] = $request->boolean('is_featured');
+
+        if ($request->hasFile('cover_image_file')) {
+            $path = $request->file('cover_image_file')->store('articles/covers', 'public');
+            $validated['cover_image'] = Storage::url($path);
+        } elseif ($request->hasFile('cover_image')) {
+            $path = $request->file('cover_image')->store('articles/covers', 'public');
+            $validated['cover_image'] = Storage::url($path);
+        } elseif ($request->filled('cover_image') && is_string($request->input('cover_image'))) {
+            $validated['cover_image'] = $request->input('cover_image');
+        } else {
+            $validated['cover_image'] = $article->cover_image;
+        }
+        unset($validated['cover_image_file']);
 
         if (empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['title']);

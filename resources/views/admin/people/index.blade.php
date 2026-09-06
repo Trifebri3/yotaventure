@@ -24,7 +24,7 @@
                     <span>Ekspor Excel</span>
                 </a>
                 <button 
-                    @click="openCreatePerson('founder')" 
+                    @click="window.dispatchEvent(new CustomEvent('open-person-modal', { detail: { category: 'founder' } }))" 
                     type="button"
                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#005952] hover:bg-teal-900 text-white text-xs font-bold shadow-sm transition-colors"
                 >
@@ -102,6 +102,15 @@
             border-radius: 0 0.75rem 0.75rem 0;
         }
     </style>
+
+    @php
+        $allPeopleKeyed = $founders->concat($team)->concat($contributors)->keyBy('id');
+        $allStoriesKeyed = $stories->keyBy('id');
+    @endphp
+    <script>
+        window.__PEOPLE_DATA__ = {!! json_encode($allPeopleKeyed) !!};
+        window.__STORIES_DATA__ = {!! json_encode($allStoriesKeyed) !!};
+    </script>
 
     <div 
         x-data="{ 
@@ -182,7 +191,12 @@
                 this.personModal = true;
             },
 
-            openEditPerson(item) {
+            openEditPerson(itemOrId) {
+                let item = (typeof itemOrId === 'object' && itemOrId !== null)
+                    ? itemOrId
+                    : (window.__PEOPLE_DATA__ ? window.__PEOPLE_DATA__[itemOrId] : null);
+                if (!item) return;
+
                 this.isEditingPerson = true;
                 this.personFormAction = '/admin/people/' + item.id;
                 
@@ -196,7 +210,13 @@
                         skills = item.meta.skills;
                     }
                     if (Array.isArray(item.meta.trajectory)) {
-                        trajectory = item.meta.trajectory.join('\n');
+                        trajectory = item.meta.trajectory.map(t => {
+                            if (typeof t === 'string') return t;
+                            if (t && typeof t === 'object') {
+                                return (t.year ? t.year + ': ' : '') + (t.title || '') + (t.description ? ' - ' + t.description : '');
+                            }
+                            return '';
+                        }).filter(Boolean).join('\n');
                     } else if (typeof item.meta.trajectory === 'string') {
                         trajectory = item.meta.trajectory;
                     }
@@ -256,7 +276,12 @@
                 });
             },
 
-            openEditStory(item) {
+            openEditStory(itemOrId) {
+                let item = (typeof itemOrId === 'object' && itemOrId !== null)
+                    ? itemOrId
+                    : (window.__STORIES_DATA__ ? window.__STORIES_DATA__[itemOrId] : null);
+                if (!item) return;
+
                 this.isEditingStory = true;
                 this.storyFormAction = '/admin/people/stories/' + item.id;
                 this.storyForm = {
@@ -279,6 +304,7 @@
                 });
             }
         }" 
+        @open-person-modal.window="openCreatePerson($event.detail.category)"
         class="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8"
     >
 
@@ -300,6 +326,23 @@
                     <span>{{ session('error') }}</span>
                 </div>
                 <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900">&times;</button>
+            </div>
+        @endif
+
+        @if(isset($errors) && $errors->any())
+            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs shadow-xs space-y-1.5">
+                <div class="flex items-center justify-between font-bold">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Terdapat kesalahan pada input form:</span>
+                    </div>
+                    <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900 font-bold">&times;</button>
+                </div>
+                <ul class="list-disc list-inside pl-7 text-[11px] text-rose-700 space-y-0.5">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
             </div>
         @endif
 
@@ -443,7 +486,7 @@
                             <div class="flex items-center gap-2">
                                 <button 
                                     type="button" 
-                                    @click="openEditPerson(@js($founder))" 
+                                    @click="openEditPerson({{ $founder->id }})" 
                                     class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
                                 >
                                     Edit
@@ -540,7 +583,7 @@
                                         <div class="flex items-center justify-end gap-2">
                                             <button 
                                                 type="button" 
-                                                @click="openEditPerson(@js($member))" 
+                                                @click="openEditPerson({{ $member->id }})" 
                                                 class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700"
                                             >
                                                 Edit
@@ -616,7 +659,7 @@
                                 Preview ↗
                             </a>
                             <div class="flex items-center gap-2">
-                                <button type="button" @click="openEditPerson(@js($c))" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700">
+                                <button type="button" @click="openEditPerson({{ $c->id }})" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700">
                                     Edit
                                 </button>
                                 <form action="{{ route('admin.people.destroy', $c->id) }}" method="POST" onsubmit="return confirm('Hapus kontributor ini?')">
@@ -675,7 +718,7 @@
                             <a href="{{ route('public.people.storyfounder.show', $story->slug) }}" target="_blank" class="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700">
                                 Pratinjau ↗
                             </a>
-                            <button type="button" @click="openEditStory(@js($story))" class="px-3 py-1.5 rounded-xl bg-[#005952] hover:bg-teal-900 text-xs font-bold text-white">
+                            <button type="button" @click="openEditStory({{ $story->id }})" class="px-3 py-1.5 rounded-xl bg-[#005952] hover:bg-teal-900 text-xs font-bold text-white">
                                 Edit Manifes
                             </button>
                             <form action="{{ route('admin.people.stories.destroy', $story->id) }}" method="POST" onsubmit="return confirm('Hapus dokumen manifes ini?')">
@@ -797,9 +840,7 @@
 
                 <form :action="personFormAction" method="POST" enctype="multipart/form-data" class="space-y-6 text-xs">
                     @csrf
-                    <template x-if="isEditingPerson">
-                        <input type="hidden" name="_method" value="PUT">
-                    </template>
+                    <input type="hidden" name="_method" :value="isEditingPerson ? 'PUT' : 'POST'">
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -961,9 +1002,7 @@
 
                 <form :action="storyFormAction" method="POST" id="form-story" class="space-y-6 text-xs">
                     @csrf
-                    <template x-if="isEditingStory">
-                        <input type="hidden" name="_method" value="PUT">
-                    </template>
+                    <input type="hidden" name="_method" :value="isEditingStory ? 'PUT' : 'POST'">
 
                     {{-- Baris 1: Penulis & Nomor Seri --}}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

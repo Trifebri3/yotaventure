@@ -317,4 +317,102 @@ class PeopleModuleTest extends TestCase
             'category' => 'tim',
         ]);
     }
+
+    /**
+     * Test admin can update a person without slug input and with photo upload.
+     */
+    public function test_admin_can_update_person(): void
+    {
+        $response = $this->actingAs($this->admin)->put(route('admin.people.update', $this->founder->id), [
+            'category' => 'founder',
+            'name' => 'Dr. Rian Ardiansyah Updated',
+            'role_id' => 'Chief Technology Officer & Co-Founder',
+            'role_en' => 'Chief Technology Officer',
+            'bio_id' => 'Bio terbarukan.',
+            'visibility' => 'public',
+            'quote' => 'Kutipan baru untuk pendiri.',
+            'skills_raw' => 'Deep Learning, Robotics',
+            'trajectory_raw' => "2020: Garasi Pertama\n2026: Skalasi Global",
+        ]);
+
+        $response->assertRedirect(route('admin.people.index', ['tab' => 'founders']));
+        $this->assertDatabaseHas('people', [
+            'id' => $this->founder->id,
+            'name' => 'Dr. Rian Ardiansyah Updated',
+            'role_id' => 'Chief Technology Officer & Co-Founder',
+        ]);
+
+        $updated = Person::find($this->founder->id);
+        $this->assertEquals('Kutipan baru untuk pendiri.', $updated->getMeta('quote'));
+        $this->assertContains('Deep Learning', $updated->getMeta('skills', []));
+        $this->assertContains('2020: Garasi Pertama', $updated->getMeta('trajectory', []));
+    }
+
+    /**
+     * Test admin can upload photo when updating person.
+     */
+    public function test_admin_can_upload_photo_on_update(): void
+    {
+        $photo = UploadedFile::fake()->image('profile.jpg');
+
+        $response = $this->actingAs($this->admin)->put(route('admin.people.update', $this->teamMember->id), [
+            'category' => 'tim',
+            'name' => 'Siti Nurhaliza',
+            'role_id' => 'Head of Agronomy',
+            'photo' => $photo,
+            'visibility' => 'public',
+        ]);
+
+        $response->assertRedirect(route('admin.people.index', ['tab' => 'team']));
+        $updated = Person::find($this->teamMember->id);
+        $this->assertNotNull($updated->photo);
+        $this->assertStringContainsString('people/', $updated->photo);
+    }
+
+    /**
+     * Test admin can delete a person.
+     */
+    public function test_admin_can_delete_person(): void
+    {
+        $id = $this->contributor->id;
+
+        $response = $this->actingAs($this->admin)->delete(route('admin.people.destroy', $id));
+
+        $response->assertRedirect(route('admin.people.index', ['tab' => 'contributors']));
+        $this->assertDatabaseMissing('people', ['id' => $id]);
+    }
+
+    /**
+     * Test admin can update founder story.
+     */
+    public function test_admin_can_update_founder_story(): void
+    {
+        $response = $this->actingAs($this->admin)->put(route('admin.people.stories.update', $this->story->id), [
+            'person_id' => $this->founder->id,
+            'chapter_number' => 'BAB 01-REV',
+            'title' => 'Malam-Malam di Laboratorium Kecil (Revisi)',
+            'content_html' => '<p>Konten revisi lengkap.</p>',
+            'status' => 'published',
+        ]);
+
+        $response->assertRedirect(route('admin.people.index', ['tab' => 'stories']));
+        $this->assertDatabaseHas('founder_stories', [
+            'id' => $this->story->id,
+            'title' => 'Malam-Malam di Laboratorium Kecil (Revisi)',
+            'chapter_number' => 'BAB 01-REV',
+        ]);
+    }
+
+    /**
+     * Test admin can delete founder story.
+     */
+    public function test_admin_can_delete_founder_story(): void
+    {
+        $id = $this->story->id;
+
+        $response = $this->actingAs($this->admin)->delete(route('admin.people.stories.destroy', $id));
+
+        $response->assertRedirect(route('admin.people.index', ['tab' => 'stories']));
+        $this->assertDatabaseMissing('founder_stories', ['id' => $id]);
+    }
 }

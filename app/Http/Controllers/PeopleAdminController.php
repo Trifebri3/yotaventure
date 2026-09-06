@@ -77,7 +77,7 @@ class PeopleAdminController extends Controller
             'role_en' => 'nullable|string|max:255',
             'bio_id' => 'nullable|string',
             'bio_en' => 'nullable|string',
-            'photo' => 'nullable|string|max:1000',
+            'photo' => 'nullable',
             'photo_file' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'initiative_id' => 'nullable|exists:ecosystem_initiatives,id',
             'is_active' => 'nullable|boolean',
@@ -86,7 +86,7 @@ class PeopleAdminController extends Controller
             'period' => 'nullable|string|max:100',
             'story_html' => 'nullable|string',
             'sort_order' => 'nullable|integer',
-            'visibility' => 'nullable|string|in:public,draft,archived',
+            'visibility' => 'nullable|string|in:public,internal,draft,archived',
 
             // Social links
             'social_linkedin' => 'nullable|url|max:500',
@@ -97,6 +97,9 @@ class PeopleAdminController extends Controller
             'social_email' => 'nullable|email|max:255',
 
             // JSON Meta inputs
+            'quote' => 'nullable|string',
+            'skills_raw' => 'nullable|string',
+            'trajectory_raw' => 'nullable|string',
             'meta_quote' => 'nullable|string',
             'meta_philosophy' => 'nullable|string',
             'meta_skills_raw' => 'nullable|string',
@@ -120,6 +123,10 @@ class PeopleAdminController extends Controller
         } elseif ($request->hasFile('photo_file')) {
             $path = $request->file('photo_file')->store('people', 'public');
             $validated['photo'] = Storage::url($path);
+        } elseif (is_string($request->input('photo')) && ! empty($request->input('photo'))) {
+            $validated['photo'] = $request->input('photo');
+        } else {
+            unset($validated['photo']);
         }
         unset($validated['photo_file']);
 
@@ -164,6 +171,9 @@ class PeopleAdminController extends Controller
             }
         }
         unset(
+            $validated['quote'],
+            $validated['skills_raw'],
+            $validated['trajectory_raw'],
             $validated['meta_quote'],
             $validated['meta_philosophy'],
             $validated['meta_skills_raw'],
@@ -195,12 +205,12 @@ class PeopleAdminController extends Controller
         $validated = $request->validate([
             'category' => 'required|string|in:founder,tim,kontributor',
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:people,slug,'.$person->id,
+            'slug' => 'nullable|string|max:255|unique:people,slug,'.$person->id,
             'role_id' => 'required|string|max:255',
             'role_en' => 'nullable|string|max:255',
             'bio_id' => 'nullable|string',
             'bio_en' => 'nullable|string',
-            'photo' => 'nullable|string|max:1000',
+            'photo' => 'nullable',
             'photo_file' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'initiative_id' => 'nullable|exists:ecosystem_initiatives,id',
             'is_active' => 'nullable|boolean',
@@ -209,7 +219,7 @@ class PeopleAdminController extends Controller
             'period' => 'nullable|string|max:100',
             'story_html' => 'nullable|string',
             'sort_order' => 'nullable|integer',
-            'visibility' => 'required|string|in:public,draft,archived',
+            'visibility' => 'nullable|string|in:public,internal,draft,archived',
 
             // Social links
             'social_linkedin' => 'nullable|url|max:500',
@@ -220,6 +230,9 @@ class PeopleAdminController extends Controller
             'social_email' => 'nullable|email|max:255',
 
             // JSON Meta inputs
+            'quote' => 'nullable|string',
+            'skills_raw' => 'nullable|string',
+            'trajectory_raw' => 'nullable|string',
             'meta_quote' => 'nullable|string',
             'meta_philosophy' => 'nullable|string',
             'meta_skills_raw' => 'nullable|string',
@@ -229,12 +242,24 @@ class PeopleAdminController extends Controller
             'meta_custom_json' => 'nullable|string',
         ]);
 
+        if (empty($validated['slug'])) {
+            $validated['slug'] = $person->slug ?: Str::slug($validated['name']);
+        }
+
         $validated['is_active'] = $request->boolean('is_active');
         $validated['sort_order'] = $validated['sort_order'] ?? $person->sort_order;
+        $validated['visibility'] = $validated['visibility'] ?? $person->visibility ?? 'public';
 
-        if ($request->hasFile('photo_file')) {
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('people', 'public');
+            $validated['photo'] = Storage::url($path);
+        } elseif ($request->hasFile('photo_file')) {
             $path = $request->file('photo_file')->store('people', 'public');
             $validated['photo'] = Storage::url($path);
+        } elseif (is_string($request->input('photo')) && ! empty($request->input('photo'))) {
+            $validated['photo'] = $request->input('photo');
+        } else {
+            unset($validated['photo']);
         }
         unset($validated['photo_file']);
 
@@ -255,23 +280,26 @@ class PeopleAdminController extends Controller
 
         // Build meta JSON
         $meta = $person->meta ?? [];
-        if ($request->has('meta_quote')) {
-            $meta['quote'] = $validated['meta_quote'];
+        $quote = $request->input('quote', $request->input('meta_quote'));
+        if ($quote !== null) {
+            $meta['quote'] = $quote;
         }
-        if ($request->has('meta_philosophy')) {
+        if ($request->filled('meta_philosophy')) {
             $meta['philosophy'] = $validated['meta_philosophy'];
         }
-        if ($request->has('meta_testimony')) {
+        if ($request->filled('meta_testimony')) {
             $meta['testimony'] = $validated['meta_testimony'];
         }
-        if ($request->has('meta_project_name')) {
+        if ($request->filled('meta_project_name')) {
             $meta['project_name'] = $validated['meta_project_name'];
         }
-        if ($request->has('meta_skills_raw')) {
-            $meta['skills'] = array_values(array_filter(array_map('trim', preg_split('/[,\n\r]+/', $validated['meta_skills_raw']))));
+        $skillsRaw = $request->input('skills_raw', $request->input('meta_skills_raw'));
+        if ($skillsRaw !== null) {
+            $meta['skills'] = array_values(array_filter(array_map('trim', preg_split('/[,\n\r]+/', $skillsRaw))));
         }
-        if ($request->has('meta_highlights_raw')) {
-            $meta['highlights'] = array_values(array_filter(array_map('trim', preg_split('/[\n\r]+/', $validated['meta_highlights_raw']))));
+        $trajectoryRaw = $request->input('trajectory_raw', $request->input('meta_highlights_raw'));
+        if ($trajectoryRaw !== null) {
+            $meta['trajectory'] = array_values(array_filter(array_map('trim', preg_split('/[\n\r]+/', $trajectoryRaw))));
         }
         if (! empty($validated['meta_custom_json'])) {
             $custom = json_decode($validated['meta_custom_json'], true);
@@ -280,6 +308,9 @@ class PeopleAdminController extends Controller
             }
         }
         unset(
+            $validated['quote'],
+            $validated['skills_raw'],
+            $validated['trajectory_raw'],
             $validated['meta_quote'],
             $validated['meta_philosophy'],
             $validated['meta_skills_raw'],
@@ -377,7 +408,7 @@ class PeopleAdminController extends Controller
             'person_id' => 'nullable|exists:people,id',
             'chapter_number' => 'nullable|string|max:50',
             'title' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:founder_stories,slug,'.$story->id,
+            'slug' => 'nullable|string|max:255|unique:founder_stories,slug,'.$story->id,
             'subtitle' => 'nullable|string|max:500',
             'cover_image' => 'nullable|string|max:1000',
             'cover_file' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
@@ -388,6 +419,11 @@ class PeopleAdminController extends Controller
             'published_at' => 'nullable|date',
             'sort_order' => 'nullable|integer',
         ]);
+
+        if (empty($validated['slug'])) {
+            $prefix = ! empty($validated['chapter_number']) ? Str::slug($validated['chapter_number']).'-' : '';
+            $validated['slug'] = $story->slug ?: ($prefix.Str::slug($validated['title']));
+        }
 
         if ($request->hasFile('cover_file')) {
             $path = $request->file('cover_file')->store('stories', 'public');

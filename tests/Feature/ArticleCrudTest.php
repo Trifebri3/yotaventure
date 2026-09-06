@@ -186,4 +186,56 @@ class ArticleCrudTest extends TestCase
 
         $response->assertRedirect(route('login'));
     }
+
+    public function test_can_store_article_with_uploaded_cover_image(): void
+    {
+        Storage::fake('public');
+
+        $cover = UploadedFile::fake()->image('article_cover.jpg', 1200, 630);
+
+        $response = $this->actingAs($this->admin)->post(route('admin.articles.store'), [
+            'title' => 'Artikel Dengan Cover Upload',
+            'type' => 'artikel',
+            'author_name' => 'Tim Media',
+            'content' => '<p>Konten artikel dengan cover image.</p>',
+            'status' => 'published',
+            'cover_image_file' => $cover,
+        ]);
+
+        $response->assertRedirect(route('admin.articles.index'));
+        $article = Article::where('title', 'Artikel Dengan Cover Upload')->first();
+        $this->assertNotNull($article);
+        $this->assertNotNull($article->cover_image);
+        $this->assertStringContainsString('articles/covers/', $article->cover_image);
+    }
+
+    public function test_can_update_article_with_uploaded_cover_image(): void
+    {
+        Storage::fake('public');
+
+        $article = Article::create([
+            'title' => 'Artikel Sebelum Ganti Cover',
+            'slug' => 'artikel-sebelum-ganti-cover',
+            'type' => 'artikel',
+            'author_name' => 'Penulis Asli',
+            'content' => '<p>Konten artikel</p>',
+            'status' => 'published',
+            'cover_image' => 'https://example.com/old-cover.jpg',
+        ]);
+
+        $newCover = UploadedFile::fake()->image('new_cover.png', 1200, 630);
+
+        $response = $this->actingAs($this->admin)->put(route('admin.articles.update', $article->id), [
+            'title' => 'Artikel Setelah Ganti Cover',
+            'type' => 'artikel',
+            'author_name' => 'Penulis Asli',
+            'content' => '<p>Konten artikel baru</p>',
+            'status' => 'published',
+            'cover_image_file' => $newCover,
+        ]);
+
+        $response->assertRedirect(route('admin.articles.index'));
+        $article->refresh();
+        $this->assertStringContainsString('articles/covers/', $article->cover_image);
+    }
 }

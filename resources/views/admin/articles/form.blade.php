@@ -264,6 +264,7 @@
             <form 
                 method="POST" 
                 action="{{ $isEdit ? route('admin.articles.update', $article->id) : route('admin.articles.store') }}" 
+                enctype="multipart/form-data"
                 class="space-y-6"
                 id="article-form"
             >
@@ -424,28 +425,103 @@
                         </div>
                     </div>
 
-                    {{-- Cover Image URL & Instant Preview --}}
-                    <div x-data="{ coverUrl: '{{ old('cover_image', $article->cover_image) }}' }">
-                        <label for="cover_image" class="block text-xs font-bold text-gray-800 uppercase tracking-wider mb-1.5">
-                            URL Gambar Sampul (Cover Image)
-                        </label>
-                        <input 
-                            type="text" 
-                            id="cover_image" 
-                            name="cover_image" 
-                            x-model="coverUrl" 
-                            placeholder="https://images.unsplash.com/... atau /foto/... (Opsional)" 
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:border-[#005952] text-xs text-gray-800 outline-none"
-                        >
+                    {{-- Cover Image (File Upload & URL with Instant Preview) --}}
+                    <div 
+                        x-data="{ 
+                            coverUrl: '{{ old('cover_image', $article->cover_image) }}',
+                            fileName: '',
+                            previewSrc: '{{ old('cover_image', $article->cover_image) }}',
+                            handleFileSelect(event) {
+                                const file = event.target.files[0];
+                                if (file) {
+                                    this.fileName = file.name;
+                                    this.previewSrc = URL.createObjectURL(file);
+                                }
+                            },
+                            removeFile() {
+                                this.fileName = '';
+                                this.previewSrc = this.coverUrl;
+                                const fileInput = document.getElementById('cover_image_file');
+                                if (fileInput) fileInput.value = '';
+                            }
+                        }"
+                        class="bg-gray-50/70 p-5 rounded-2xl border border-gray-200 space-y-4"
+                    >
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                    Gambar Sampul Publikasi (Cover Image)
+                                </label>
+                                <p class="text-[11px] text-gray-500">
+                                    Unggah langsung berkas gambar dari perangkat Anda atau cantumkan tautan URL gambar.
+                                </p>
+                            </div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono bg-teal-50 text-[#005952] border border-teal-200">
+                                Rasio 16:9 (Min. 1200x630 px)
+                            </span>
+                        </div>
 
-                        <div class="mt-3 flex items-center gap-4">
-                            <template x-if="coverUrl">
-                                <div class="relative w-36 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-xs bg-gray-100">
-                                    <img :src="coverUrl" alt="Preview Sampul" class="w-full h-full object-cover">
-                                    <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-[8px] text-white font-mono">Preview</span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {{-- Option 1: File Upload --}}
+                            <div class="space-y-1.5">
+                                <label for="cover_image_file" class="block text-[11px] font-bold text-gray-700">
+                                    📁 Unggah Berkas Gambar (JPG, PNG, WEBP)
+                                </label>
+                                <div class="relative flex items-center">
+                                    <input 
+                                        type="file" 
+                                        id="cover_image_file" 
+                                        name="cover_image_file" 
+                                        accept="image/jpeg,image/png,image/jpg,image/webp,image/gif" 
+                                        @change="handleFileSelect($event)"
+                                        class="block w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#005952] file:text-white hover:file:bg-[#004741] file:cursor-pointer border border-gray-300 rounded-xl p-1.5 bg-white cursor-pointer transition-colors"
+                                    >
+                                </div>
+                                <template x-if="fileName">
+                                    <div class="flex items-center justify-between text-[11px] text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                                        <span class="truncate font-medium" x-text="'File terpilih: ' + fileName"></span>
+                                        <button type="button" @click="removeFile()" class="text-rose-600 hover:text-rose-800 font-bold ml-2">Batal</button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {{-- Option 2: Image URL --}}
+                            <div class="space-y-1.5">
+                                <label for="cover_image" class="block text-[11px] font-bold text-gray-700">
+                                    🔗 Atau Tautan URL Gambar (Opsional)
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="cover_image" 
+                                    name="cover_image" 
+                                    x-model="coverUrl" 
+                                    @input="if(!fileName) previewSrc = coverUrl"
+                                    placeholder="https://images.unsplash.com/... atau /foto/..." 
+                                    class="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-[#005952] focus:ring-1 focus:ring-[#005952] text-xs text-gray-800 outline-none transition-colors"
+                                >
+                            </div>
+                        </div>
+
+                        {{-- Instant Visual Preview Card --}}
+                        <div class="pt-3 border-t border-gray-200/80 flex flex-col sm:flex-row sm:items-center gap-4">
+                            <template x-if="previewSrc">
+                                <div class="relative w-48 h-28 rounded-xl overflow-hidden border border-gray-300 shadow-sm bg-gray-900 shrink-0 group">
+                                    <img :src="previewSrc" alt="Preview Sampul" class="w-full h-full object-cover">
+                                    <span class="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono tracking-wider">
+                                        Social Preview
+                                    </span>
                                 </div>
                             </template>
-                            <span class="text-[11px] text-gray-400">Rekomendasi rasio gambar lanskap 16:9 atau resolusi minimum 1200x630 pixel untuk preview media sosial yang jernih.</span>
+                            <template x-if="!previewSrc">
+                                <div class="w-48 h-28 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0 bg-gray-100/50">
+                                    <svg class="w-6 h-6 mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <span class="text-[10px] font-semibold">Belum Ada Gambar</span>
+                                </div>
+                            </template>
+                            <div class="text-[11px] text-gray-500 leading-relaxed">
+                                <p class="font-bold text-gray-700 mb-0.5">Preview Tampilan Thumbnail Media Sosial & Google</p>
+                                <p>Gambar ini akan muncul secara otomatis saat artikel dibagikan ke WhatsApp, LinkedIn, X/Twitter, Telegram, serta dioptimalkan untuk thumbnail pencarian Google.</p>
+                            </div>
                         </div>
                     </div>
 
