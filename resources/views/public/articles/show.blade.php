@@ -1,62 +1,86 @@
 @extends('public.layouts.app')
 
-@push('meta')
+@section('meta')
+    @php
+        $shareImage = $article->share_image_url;
+        $cleanDesc = $article->meta_description ?: ($article->excerpt ?: Str::limit(strip_tags($article->content), 160));
+        $canonical = $article->canonical_url ?: url()->current();
+    @endphp
     {{-- Dynamic SEO Meta Tags --}}
-    <title>{{ $article->meta_title ?: $article->title . ' | YOIN Inovasi Nusantara' }}</title>
-    <meta name="description" content="{{ $article->meta_description ?: ($article->excerpt ?: Str::limit(strip_tags($article->content), 160)) }}">
-    @if($article->meta_keywords)
-        <meta name="keywords" content="{{ $article->meta_keywords }}">
-    @endif
-    @if($article->canonical_url)
-        <link rel="canonical" href="{{ $article->canonical_url }}">
-    @else
-        <link rel="canonical" href="{{ url()->current() }}">
-    @endif
+    <title>{{ $article->meta_title ?: $article->title . ' | PT Yota Inovasi Nusantara (YOIN)' }}</title>
+    <meta name="description" content="{{ $cleanDesc }}">
+    <meta name="keywords" content="{{ $article->meta_keywords ?: 'YOIN, PT Yota Inovasi Nusantara, digital, jasa website, software house, transformasi digital, ' . ($article->tag ?? 'teknologi') }}">
+    <meta name="author" content="{{ $article->author_name ?: 'PT Yota Inovasi Nusantara' }}">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="thumbnail" content="{{ $shareImage }}">
+    <meta name="image" content="{{ $shareImage }}">
+    <link rel="canonical" href="{{ $canonical }}">
 
-    {{-- Open Graph / Facebook --}}
+    {{-- Hreflang Multi-Language --}}
+    <link rel="alternate" hreflang="id" href="{{ url()->current() }}">
+    <link rel="alternate" hreflang="en" href="{{ url()->current() }}">
+    <link rel="alternate" hreflang="x-default" href="{{ url()->current() }}">
+
+    {{-- Open Graph / WhatsApp / Facebook Preview --}}
+    <meta property="og:site_name" content="PT Yota Inovasi Nusantara (YOIN)">
     <meta property="og:type" content="article">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $canonical }}">
     <meta property="og:title" content="{{ $article->meta_title ?: $article->title }}">
-    <meta property="og:description" content="{{ $article->meta_description ?: ($article->excerpt ?: Str::limit(strip_tags($article->content), 160)) }}">
-    @if($article->cover_image)
-        <meta property="og:image" content="{{ $article->cover_image }}">
-    @else
-        <meta property="og:image" content="{{ asset('logo.png') }}">
-    @endif
+    <meta property="og:description" content="{{ $cleanDesc }}">
+    <meta property="og:image" content="{{ $shareImage }}">
+    <meta property="og:image:secure_url" content="{{ $shareImage }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:alt" content="{{ $article->title }}">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="article:published_time" content="{{ $article->published_at ? $article->published_at->toIso8601String() : now()->toIso8601String() }}">
+    <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
+    <meta property="article:section" content="{{ $article->type }}">
+    <meta property="article:tag" content="{{ $article->tag }}">
 
     {{-- Twitter Card --}}
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $article->meta_title ?: $article->title }}">
-    <meta name="twitter:description" content="{{ $article->meta_description ?: ($article->excerpt ?: Str::limit(strip_tags($article->content), 160)) }}">
-    @if($article->cover_image)
-        <meta name="twitter:image" content="{{ $article->cover_image }}">
-    @endif
+    <meta name="twitter:description" content="{{ $cleanDesc }}">
+    <meta name="twitter:image" content="{{ $shareImage }}">
+    <meta name="twitter:image:alt" content="{{ $article->title }}">
 
-    {{-- Schema.org Article JSON-LD --}}
+    {{-- Schema.org Article JSON-LD with ImageObject --}}
     <script type="application/ld+json">
     {!! json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'Article',
+        'mainEntityOfPage' => [
+            '@type' => 'WebPage',
+            '@id' => $canonical,
+        ],
         'headline' => $article->title,
         'image' => [
-            $article->cover_image ?: asset('logo.png'),
+            '@type' => 'ImageObject',
+            'url' => $shareImage,
+            'width' => 1200,
+            'height' => 630,
         ],
         'datePublished' => $article->published_at ? $article->published_at->toIso8601String() : now()->toIso8601String(),
         'dateModified' => $article->updated_at->toIso8601String(),
-        'author' => [[
+        'author' => [
             '@type' => 'Organization',
-            'name' => $article->author_name,
+            'name' => $article->author_name ?: 'PT Yota Inovasi Nusantara',
             'url' => url('/'),
-        ]],
+        ],
         'publisher' => [
             '@type' => 'Organization',
             'name' => 'PT Yota Inovasi Nusantara',
+            'url' => url('/'),
             'logo' => [
                 '@type' => 'ImageObject',
                 'url' => asset('logo.png'),
             ],
         ],
-        'description' => $article->excerpt ?: Str::limit(strip_tags($article->content), 160),
+        'description' => $cleanDesc,
+        'keywords' => $article->meta_keywords ?: 'YOTA, YOIN, PT Yota Inovasi Nusantara, digital, jasa website, ' . ($article->tag ?? 'teknologi'),
     ], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}
     </script>
 
@@ -202,7 +226,7 @@
             font-weight: bold;
         }
     </style>
-@endpush
+@endsection
 
 @section('content')
 <article class="bg-white pt-28 sm:pt-36 pb-20 select-none font-sans min-h-screen">

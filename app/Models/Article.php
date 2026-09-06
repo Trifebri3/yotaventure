@@ -178,4 +178,46 @@ class Article extends Model
 
         return $this->badge;
     }
+
+    /**
+     * Get absolute URL of the cover/share image for WhatsApp, Social Media & Google Rich Snippets.
+     */
+    public function getShareImageUrlAttribute(): string
+    {
+        if (! empty($this->cover_image)) {
+            if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+                return $this->cover_image;
+            }
+
+            if (str_starts_with($this->cover_image, '/')) {
+                return url($this->cover_image);
+            }
+
+            return url('storage/'.$this->cover_image);
+        }
+
+        // Fallback: extract first <img> tag from article HTML content
+        if (! empty($this->content) && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $this->content, $matches)) {
+            $src = $matches[1];
+            if (str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
+                return $src;
+            }
+
+            if (str_starts_with($src, '/')) {
+                return url($src);
+            }
+
+            return url($src);
+        }
+
+        return asset('logo.png');
+    }
+
+    /**
+     * Cover image URL accessor.
+     */
+    public function getCoverImageUrlAttribute(): string
+    {
+        return $this->share_image_url;
+    }
 }

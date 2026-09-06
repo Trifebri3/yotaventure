@@ -18,6 +18,7 @@ use App\Http\Controllers\PeopleAdminController;
 use App\Http\Controllers\PeoplePublicController;
 use App\Http\Controllers\PortfolioPublicController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SitemapController;
 use App\Models\Article;
 use App\Models\EcosystemClient;
 use App\Models\EcosystemDocument;
@@ -243,5 +244,8 @@ Route::redirect('/privacy-policy', '/kebijakan-privasi');
 Route::redirect('/security', '/keamanan-informasi');
 Route::redirect('/keamanan', '/keamanan-informasi');
 Route::redirect('/information-security', '/keamanan-informasi');
+
+// Dynamic Search Engine XML Sitemap
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 require __DIR__.'/auth.php';
